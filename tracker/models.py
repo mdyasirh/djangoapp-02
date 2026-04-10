@@ -60,6 +60,10 @@ class CorrectionRequest(models.Model):
         return f"Correction for {self.record} – {self.status}"
 
 
+def _current_year():
+    return datetime.date.today().year
+
+
 class HRReview(models.Model):
     STATUS_CHOICES = [
         ("PENDING", "Pending"),
@@ -69,7 +73,7 @@ class HRReview(models.Model):
 
     employee = models.ForeignKey(EmployeeProfile, on_delete=models.CASCADE, related_name="hr_reviews")
     month = models.IntegerField(help_text="Month number (1-12)")
-    year = models.IntegerField(default=2024)
+    year = models.IntegerField(default=_current_year)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
 
     class Meta:

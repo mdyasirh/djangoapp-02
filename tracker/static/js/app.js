@@ -9,10 +9,7 @@ function applyLanguage(lang) {
   document.querySelectorAll('[data-en][data-de]').forEach(el => {
     const text = el.getAttribute('data-' + lang);
     if (text !== null) {
-      // For input elements, set value; for textareas, set value; for others, set innerText
-      if (el.tagName === 'INPUT' && el.type !== 'hidden') {
-        el.value = text;
-      } else if (el.tagName === 'TEXTAREA') {
+      if ((el.tagName === 'INPUT' && el.type !== 'hidden') || el.tagName === 'TEXTAREA') {
         el.value = text;
       } else {
         el.innerText = text;

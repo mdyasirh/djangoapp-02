@@ -185,8 +185,11 @@ def api_submit_correction(request):
     except DailyTimeRecord.DoesNotExist:
         return JsonResponse({"ok": False, "error": "Record not found."})
 
-    hour, minute = proposed_time.split(":")
-    t = datetime.time(int(hour), int(minute))
+    try:
+        hour, minute = proposed_time.split(":")
+        t = datetime.time(int(hour), int(minute))
+    except (ValueError, TypeError):
+        return JsonResponse({"ok": False, "error": "Invalid time format. Please use HH:MM."})
 
     CorrectionRequest.objects.create(record=record, proposed_out_time=t)
     return JsonResponse({"ok": True})
