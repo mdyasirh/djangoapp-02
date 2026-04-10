@@ -16,6 +16,12 @@ urlpatterns = [
     path("api/break-end/", views.api_break_end, name="api_break_end"),
     path("api/punch-out/", views.api_punch_out, name="api_punch_out"),
     path("api/submit-correction/", views.api_submit_correction, name="api_submit_correction"),
+    path("api/delete-record/", views.api_delete_record, name="api_delete_record"),
+
+    # Notification endpoints
+    path("api/notifications/", views.api_notifications, name="api_notifications"),
+    path("api/notifications/mark-read/", views.api_mark_notification_read, name="api_mark_notification_read"),
+    path("api/notifications/mark-all-read/", views.api_mark_all_notifications_read, name="api_mark_all_notifications_read"),
 
     # HR dashboard
     path("hr/", views.hr_dashboard_view, name="hr_dashboard"),

@@ -31,8 +31,7 @@ class DailyTimeRecord(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="WORKING")
 
     class Meta:
-        ordering = ["-date"]
-        unique_together = ["employee", "date"]
+        ordering = ["-date", "-clock_in"]
 
     def __str__(self):
         return f"{self.employee} – {self.date} ({self.status})"
@@ -53,7 +52,10 @@ class CorrectionRequest(models.Model):
     ]
 
     record = models.ForeignKey(DailyTimeRecord, on_delete=models.CASCADE, related_name="corrections")
-    proposed_out_time = models.TimeField()
+    proposed_clock_in = models.TimeField(null=True, blank=True)
+    proposed_clock_out = models.TimeField(null=True, blank=True)
+    proposed_break_minutes = models.IntegerField(null=True, blank=True)
+    note = models.TextField(blank=True, default="")
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="PENDING")
 
     def __str__(self):
@@ -81,3 +83,27 @@ class HRReview(models.Model):
 
     def __str__(self):
         return f"HRReview {self.employee} – {self.month}/{self.year} ({self.status})"
+
+
+class Notification(models.Model):
+    TYPE_CHOICES = [
+        ("REMINDER", "Reminder from HR"),
+        ("EDIT_REQUEST", "Edit Request from Employee"),
+        ("CORRECTION", "Correction Request"),
+        ("INFO", "Information"),
+    ]
+
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications")
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sent_notifications", null=True, blank=True)
+    notification_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default="INFO")
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    related_record = models.ForeignKey(DailyTimeRecord, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.notification_type}: {self.title} → {self.recipient.username}"
