@@ -82,10 +82,42 @@
     {% block content %}{% endblock %}
   </div>
 
+  <!-- Notification Detail Modal -->
+  <div class="modal fade" id="notifDetailModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content bg-dark text-light">
+        <div class="modal-header border-secondary">
+          <h5 class="modal-title" id="notifDetailTitle"></h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p id="notifDetailMessage" class="mb-2"></p>
+          <div id="notifDetailCorrection" style="display:none;" class="mt-3">
+            <h6 class="text-info" data-en="Correction Details" data-de="Korrekturdetails">Korrekturdetails</h6>
+            <table class="table table-dark table-sm">
+              <tbody>
+                <tr><td data-en="Date" data-de="Datum">Datum</td><td id="corrDate">--</td></tr>
+                <tr><td data-en="Proposed Clock-in" data-de="Vorgeschlagene Einstempelzeit">Vorgeschlagene Einstempelzeit</td><td id="corrClockIn">--</td></tr>
+                <tr><td data-en="Proposed Clock-out" data-de="Vorgeschlagene Ausstempelzeit">Vorgeschlagene Ausstempelzeit</td><td id="corrClockOut">--</td></tr>
+                <tr><td data-en="Proposed Break (min)" data-de="Vorgeschlagene Pause (Min)">Vorgeschlagene Pause (Min)</td><td id="corrBreak">--</td></tr>
+                <tr><td data-en="Note" data-de="Anmerkung">Anmerkung</td><td id="corrNote">--</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="notifDetailTime" class="text-muted small mt-2"></div>
+        </div>
+        <div class="modal-footer border-secondary" id="notifDetailFooter">
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="{% static 'js/app.js' %}"></script>
   <script>
     // Notification dropdown logic
+    let _notifCache = [];
+
     function toggleNotifDropdown() {
       const dd = document.getElementById('notifDropdown');
       dd.classList.toggle('show');
@@ -109,6 +141,7 @@
         const data = await resp.json();
         if (!data.ok) return;
 
+        _notifCache = data.notifications;
         const list = document.getElementById('notifList');
         const lang = localStorage.getItem('lang') || 'de';
 
@@ -124,9 +157,9 @@
             day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
           });
           return `
-            <div class="notification-item ${n.is_read ? '' : 'unread'}" onclick="event.stopPropagation(); markRead(${n.id})">
-              <div class="fw-bold">${n.title}</div>
-              <div class="text-muted small">${n.message}</div>
+            <div class="notification-item ${n.is_read ? '' : 'unread'}" onclick="event.stopPropagation(); openNotifDetail(${n.id})">
+              <div class="fw-bold">${escapeHtml(n.title)}</div>
+              <div class="text-muted small">${escapeHtml(n.message).substring(0, 80)}${n.message.length > 80 ? '...' : ''}</div>
               <div class="notif-time">${timeStr}</div>
             </div>`;
         }).join('');
@@ -135,26 +168,129 @@
       }
     }
 
-    async function markRead(notifId) {
-      const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function openNotifDetail(notifId) {
+      const n = _notifCache.find(x => x.id === notifId);
+      if (!n) return;
+
+      // Close dropdown
+      document.getElementById('notifDropdown').classList.remove('show');
+
+      const lang = localStorage.getItem('lang') || 'de';
+      document.getElementById('notifDetailTitle').textContent = n.title;
+      document.getElementById('notifDetailMessage').textContent = n.message;
+
+      const date = new Date(n.created_at);
+      document.getElementById('notifDetailTime').textContent = date.toLocaleString(
+        lang === 'de' ? 'de-DE' : 'en-GB'
+      );
+
+      // Show correction details if EDIT_REQUEST with correction data
+      const corrSection = document.getElementById('notifDetailCorrection');
+      if (n.notification_type === 'EDIT_REQUEST' && n.correction) {
+        corrSection.style.display = 'block';
+        document.getElementById('corrDate').textContent = n.correction.record_date || '--';
+        document.getElementById('corrClockIn').textContent = n.correction.proposed_clock_in || '--';
+        document.getElementById('corrClockOut').textContent = n.correction.proposed_clock_out || '--';
+        document.getElementById('corrBreak').textContent = n.correction.proposed_break_minutes != null ? n.correction.proposed_break_minutes : '--';
+        document.getElementById('corrNote').textContent = n.correction.note || '--';
+      } else {
+        corrSection.style.display = 'none';
+      }
+
+      // Build footer buttons based on notification type
+      const footer = document.getElementById('notifDetailFooter');
+      const csrf = '{{ csrf_token }}';
+
+      if (n.notification_type === 'EDIT_REQUEST' && n.correction) {
+        const approveLabel = lang === 'de' ? 'Genehmigen' : 'Approve';
+        const rejectLabel = lang === 'de' ? 'Ablehnen' : 'Reject';
+        footer.innerHTML = `
+          <button class="btn btn-danger" onclick="handleCorrectionAction('reject', ${n.correction.id}, ${n.id})">${rejectLabel}</button>
+          <button class="btn btn-success" onclick="handleCorrectionAction('approve', ${n.correction.id}, ${n.id})">${approveLabel}</button>`;
+      } else if (n.notification_type === 'REMINDER' || n.notification_type === 'INFO' || n.notification_type === 'CORRECTION') {
+        const okLabel = lang === 'de' ? 'Verstanden' : 'Acknowledge';
+        footer.innerHTML = `
+          <button class="btn btn-primary" onclick="acknowledgeNotif(${n.id})">${okLabel}</button>`;
+      } else {
+        const closeLabel = lang === 'de' ? 'Schließen' : 'Close';
+        footer.innerHTML = `
+          <button class="btn btn-secondary" data-bs-dismiss="modal">${closeLabel}</button>`;
+      }
+
+      new bootstrap.Modal(document.getElementById('notifDetailModal')).show();
+    }
+
+    async function handleCorrectionAction(action, correctionId, notifId) {
+      const csrf = '{{ csrf_token }}';
+      const url = action === 'approve' ? '/api/approve-correction/' : '/api/reject-correction/';
+      const body = new URLSearchParams({ correction_id: correctionId });
+      try {
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'X-CSRFToken': csrf },
+          body: body,
+        });
+        const data = await resp.json();
+        if (data.ok) {
+          bootstrap.Modal.getInstance(document.getElementById('notifDetailModal')).hide();
+          const lang = localStorage.getItem('lang') || 'de';
+          const msg = action === 'approve'
+            ? (lang === 'de' ? 'Korrektur genehmigt.' : 'Correction approved.')
+            : (lang === 'de' ? 'Korrektur abgelehnt.' : 'Correction rejected.');
+          showGlobalToast(msg);
+          fetchNotifications();
+        } else {
+          alert(data.error);
+        }
+      } catch (err) {
+        console.error('Correction action failed:', err);
+        alert('An error occurred.');
+      }
+    }
+
+    async function acknowledgeNotif(notifId) {
+      const csrf = '{{ csrf_token }}';
       const body = new URLSearchParams({ notification_id: notifId });
-      await fetch('/api/notifications/mark-read/', {
-        method: 'POST',
-        headers: { 'X-CSRFToken': csrf },
-        body: body,
-      });
-      fetchNotifications();
-      loadNotifications();
+      try {
+        await fetch('/api/notifications/mark-read/', {
+          method: 'POST',
+          headers: { 'X-CSRFToken': csrf },
+          body: body,
+        });
+        bootstrap.Modal.getInstance(document.getElementById('notifDetailModal')).hide();
+        fetchNotifications();
+      } catch (err) {
+        console.error('Failed to acknowledge notification:', err);
+      }
+    }
+
+    async function markRead(notifId) {
+      openNotifDetail(notifId);
     }
 
     async function doMarkAllRead() {
-      const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
+      const csrf = '{{ csrf_token }}';
       await fetch('/api/notifications/mark-all-read/', {
         method: 'POST',
         headers: { 'X-CSRFToken': csrf },
       });
       fetchNotifications();
       loadNotifications();
+    }
+
+    function showGlobalToast(msg) {
+      const toast = document.createElement('div');
+      toast.className = 'position-fixed bottom-0 end-0 p-3';
+      toast.style.zIndex = '3000';
+      toast.innerHTML = `<div class="alert alert-success alert-dismissible shadow">${escapeHtml(msg)}</div>`;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
     }
   </script>
   {% block extra_js %}{% endblock %}

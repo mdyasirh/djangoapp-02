@@ -71,15 +71,43 @@ def logout_view(request):
 
 @login_required
 def api_notifications(request):
-    """Return unread notifications for the current user."""
+    """Return unread notifications for the current user with full details."""
     notifications = Notification.objects.filter(
         recipient=request.user,
         is_read=False,
-    ).values("id", "notification_type", "title", "message", "created_at", "is_read")
+    ).select_related("related_record").order_by("-created_at")
+
+    result = []
+    for n in notifications:
+        entry = {
+            "id": n.id,
+            "notification_type": n.notification_type,
+            "title": n.title,
+            "message": n.message,
+            "created_at": n.created_at.isoformat() if n.created_at else "",
+            "is_read": n.is_read,
+            "related_record_id": n.related_record_id,
+        }
+        # For EDIT_REQUEST, include the latest pending correction details
+        if n.notification_type == "EDIT_REQUEST" and n.related_record_id:
+            correction = CorrectionRequest.objects.filter(
+                record_id=n.related_record_id, status="PENDING"
+            ).first()
+            if correction:
+                entry["correction"] = {
+                    "id": correction.id,
+                    "proposed_clock_in": correction.proposed_clock_in.strftime("%H:%M") if correction.proposed_clock_in else "",
+                    "proposed_clock_out": correction.proposed_clock_out.strftime("%H:%M") if correction.proposed_clock_out else "",
+                    "proposed_break_minutes": correction.proposed_break_minutes,
+                    "note": correction.note,
+                    "record_date": n.related_record.date.isoformat() if n.related_record else "",
+                }
+        result.append(entry)
+
     return JsonResponse({
         "ok": True,
-        "count": notifications.count(),
-        "notifications": list(notifications),
+        "count": len(result),
+        "notifications": result,
     })
 
 
@@ -169,10 +197,22 @@ def api_punch_in(request):
     if active:
         return JsonResponse({"ok": False, "error": "Already clocked in. Please clock out first."})
 
+    # Use browser time if provided, fall back to server time
+    clock_in_time = timezone.now()
+    browser_time = request.POST.get("browser_time", "").strip()
+    if browser_time:
+        try:
+            parsed = datetime.datetime.fromisoformat(browser_time.replace("Z", "+00:00"))
+            if timezone.is_naive(parsed):
+                parsed = timezone.make_aware(parsed)
+            clock_in_time = parsed
+        except (ValueError, TypeError):
+            pass  # Fall back to server time
+
     record = DailyTimeRecord.objects.create(
         employee=profile,
         date=today,
-        clock_in=timezone.now(),
+        clock_in=clock_in_time,
         status="WORKING",
     )
 
@@ -459,6 +499,102 @@ def api_acknowledge(request):
     review.status = "REVIEWED"
     review.save()
     return JsonResponse({"ok": True, "status": review.status})
+
+
+@login_required
+@user_passes_test(is_hr, login_url="/access-denied/")
+@require_POST
+def api_approve_correction(request):
+    """Approve a correction request: apply proposed times to the record."""
+    correction_id = request.POST.get("correction_id")
+    try:
+        correction = CorrectionRequest.objects.select_related("record").get(
+            pk=correction_id, status="PENDING"
+        )
+    except CorrectionRequest.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Correction request not found or already processed."})
+
+    record = correction.record
+
+    # Apply proposed clock-in time
+    if correction.proposed_clock_in and record.clock_in:
+        record.clock_in = record.clock_in.replace(
+            hour=correction.proposed_clock_in.hour,
+            minute=correction.proposed_clock_in.minute,
+            second=0,
+        )
+
+    # Apply proposed clock-out time
+    if correction.proposed_clock_out:
+        if record.clock_out:
+            record.clock_out = record.clock_out.replace(
+                hour=correction.proposed_clock_out.hour,
+                minute=correction.proposed_clock_out.minute,
+                second=0,
+            )
+        elif record.clock_in:
+            # No clock_out existed; create one on the same day as clock_in
+            record.clock_out = record.clock_in.replace(
+                hour=correction.proposed_clock_out.hour,
+                minute=correction.proposed_clock_out.minute,
+                second=0,
+            )
+            if record.status == "MISSING_CLOCKOUT":
+                record.status = "CLOCKED_OUT"
+
+    # Apply proposed break minutes
+    if correction.proposed_break_minutes is not None:
+        record.total_break_minutes = correction.proposed_break_minutes
+
+    record.save()
+
+    correction.status = "APPROVED"
+    correction.save()
+
+    # Mark related notifications as read
+    Notification.objects.filter(
+        related_record=record,
+        notification_type="EDIT_REQUEST",
+        is_read=False,
+    ).update(is_read=True)
+
+    return JsonResponse({"ok": True})
+
+
+@login_required
+@user_passes_test(is_hr, login_url="/access-denied/")
+@require_POST
+def api_reject_correction(request):
+    """Reject a correction request."""
+    correction_id = request.POST.get("correction_id")
+    try:
+        correction = CorrectionRequest.objects.select_related("record").get(
+            pk=correction_id, status="PENDING"
+        )
+    except CorrectionRequest.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Correction request not found or already processed."})
+
+    correction.status = "REJECTED"
+    correction.save()
+
+    # Mark related notifications as read
+    Notification.objects.filter(
+        related_record=correction.record,
+        notification_type="EDIT_REQUEST",
+        is_read=False,
+    ).update(is_read=True)
+
+    # Notify the employee about the rejection
+    Notification.objects.create(
+        recipient=correction.record.employee.user,
+        sender=request.user,
+        notification_type="INFO",
+        title="Korrekturanfrage abgelehnt" if True else "Correction request rejected",
+        message=f"Ihre Korrekturanfrage für {correction.record.date} wurde abgelehnt.",
+        related_record=correction.record,
+    )
+
+    return JsonResponse({"ok": True})
 
 
 # ---------------------------------------------------------------------------

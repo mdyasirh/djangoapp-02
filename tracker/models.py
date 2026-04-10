@@ -49,6 +49,7 @@ class CorrectionRequest(models.Model):
     STATUS_CHOICES = [
         ("PENDING", "Pending"),
         ("APPROVED", "Approved"),
+        ("REJECTED", "Rejected"),
     ]
 
     record = models.ForeignKey(DailyTimeRecord, on_delete=models.CASCADE, related_name="corrections")

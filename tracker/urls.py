@@ -30,6 +30,8 @@ urlpatterns = [
     # HR AJAX endpoints
     path("api/send-reminder/", views.api_send_reminder, name="api_send_reminder"),
     path("api/acknowledge/", views.api_acknowledge, name="api_acknowledge"),
+    path("api/approve-correction/", views.api_approve_correction, name="api_approve_correction"),
+    path("api/reject-correction/", views.api_reject_correction, name="api_reject_correction"),
 
     # CSV export
     path("hr/export-csv/", views.csv_export_view, name="csv_export"),
