@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% load tz %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <h2 class="mb-4" data-en="Punch Clock" data-de="Stempeluhr">Punch Clock</h2>
+
+    <!-- Status Area -->
+    <div id="statusArea" class="text-center mb-4">
+      <!-- Dynamically populated by JS -->
+    </div>
+
+    <!-- Action Buttons -->
+    <div id="actionButtons" class="text-center mb-5">
+      <!-- Dynamically populated by JS -->
+    </div>
+
+    <!-- Summary Card (shown after clocking out) -->
+    <div id="summaryCard" class="card p-4 mb-4" style="display:none;">
+      <h5 data-en="Today's Summary" data-de="Tagesübersicht">Today's Summary</h5>
+      <table class="table table-dark table-sm">
+        <tr><td data-en="Clock In" data-de="Einstempeln">Clock In</td><td id="sumClockIn">--</td></tr>
+        <tr><td data-en="Clock Out" data-de="Ausstempeln">Clock Out</td><td id="sumClockOut">--</td></tr>
+        <tr><td data-en="Break" data-de="Pause">Break</td><td id="sumBreak">--</td></tr>
+        <tr><td data-en="Net Hours" data-de="Nettostunden">Net Hours</td><td id="sumNet">--</td></tr>
+      </table>
+    </div>
+
+    <!-- Weekly Overview -->
+    <h4 class="mt-4 mb-3" data-en="Weekly Overview" data-de="Wochenübersicht">Weekly Overview</h4>
+    <div class="table-responsive">
+      <table class="table table-dark table-striped table-hover">
+        <thead>
+          <tr>
+            <th data-en="Date" data-de="Datum">Date</th>
+            <th data-en="Clock In" data-de="Einstempeln">Clock In</th>
+            <th data-en="Clock Out" data-de="Ausstempeln">Clock Out</th>
+            <th data-en="Break (min)" data-de="Pause (Min)">Break (min)</th>
+            <th data-en="Net Hours" data-de="Nettostunden">Net Hours</th>
+            <th data-en="Status" data-de="Status">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for rec in weekly_records %}
+          <tr>
+            <td>{{ rec.date|date:"D, d M" }}</td>
+            <td>{{ rec.clock_in|date:"H:i"|default:"--" }}</td>
+            <td>
+              {% if rec.clock_in and not rec.clock_out %}
+                <span class="badge bg-danger" data-en="No clock-out" data-de="Kein Ausstempeln">No clock-out</span>
+              {% else %}
+                {{ rec.clock_out|date:"H:i"|default:"--" }}
+              {% endif %}
+            </td>
+            <td>{{ rec.total_break_minutes }}</td>
+            <td>{{ rec.net_hours|default:"--" }}</td>
+            <td>
+              {% if rec.status == "MISSING_CLOCKOUT" or rec.clock_in and not rec.clock_out %}
+                <button class="btn btn-sm btn-outline-warning correction-btn"
+                        data-record-id="{{ rec.pk }}"
+                        data-en="Submit correction" data-de="Korrektur einreichen"
+                        onclick="showCorrectionModal({{ rec.pk }})">
+                  Submit correction
+                </button>
+              {% else %}
+                <span class="badge bg-success" data-en="Complete" data-de="Vollständig">Complete</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6" class="text-center text-muted" data-en="No records this week" data-de="Keine Einträge diese Woche">No records this week</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Correction Modal -->
+<div class="modal fade" id="correctionModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title" data-en="Submit Correction" data-de="Korrektur einreichen">Submit Correction</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="corrRecordId">
+        <div class="mb-3">
+          <label class="form-label" data-en="Proposed clock-out time" data-de="Vorgeschlagene Ausstempelzeit">Proposed clock-out time</label>
+          <input type="time" id="corrTime" class="form-control bg-dark text-light border-secondary">
+        </div>
+      </div>
+      <div class="modal-footer border-secondary">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-en="Cancel" data-de="Abbrechen">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="submitCorrection()" data-en="Submit" data-de="Einreichen">Submit</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ---- State Machine for punch-clock UI ----
+const CSRF = '{{ csrf_token }}';
+const initialStatus = '{{ record.status|default:"NONE" }}';
+const initialClockIn = '{{ record.clock_in|date:"H:i"|default:"" }}';
+
+document.addEventListener('DOMContentLoaded', () => renderState(initialStatus, initialClockIn));
+
+function renderState(status, clockIn) {
+  const statusArea = document.getElementById('statusArea');
+  const actionBtns = document.getElementById('actionButtons');
+  const summaryCard = document.getElementById('summaryCard');
+  summaryCard.style.display = 'none';
+
+  const lang = localStorage.getItem('lang') || 'en';
+  const t = {
+    notClockedIn: lang === 'de' ? 'Noch nicht eingestempelt' : 'Not clocked in yet',
+    start: lang === 'de' ? 'Starten' : 'Start',
+    working: lang === 'de' ? 'Arbeitet gerade' : 'Currently working',
+    breakBtn: lang === 'de' ? 'Pause' : 'Break',
+    stop: lang === 'de' ? 'Stopp' : 'Stop',
+    onBreak: lang === 'de' ? 'In der Pause' : 'On break',
+    resume: lang === 'de' ? 'Fortsetzen' : 'Resume',
+    clockedOut: lang === 'de' ? 'Ausgestempelt' : 'Clocked out for today',
+  };
+
+  if (status === 'NONE' || status === '') {
+    statusArea.innerHTML = `<p class="text-muted fs-5">${t.notClockedIn}</p>`;
+    actionBtns.innerHTML = `<button class="btn btn-success btn-lg px-5 py-3 fs-3" onclick="doPunch('punch-in')">${t.start}</button>`;
+  } else if (status === 'WORKING') {
+    statusArea.innerHTML = `<span class="badge bg-success badge-pulse fs-5 p-3">⏱ ${t.working} (${clockIn})</span>`;
+    actionBtns.innerHTML = `
+      <button class="btn btn-warning btn-lg me-3 px-4 py-2" onclick="doPunch('break-start')">${t.breakBtn}</button>
+      <button class="btn btn-danger btn-lg px-4 py-2" onclick="doPunch('punch-out')">${t.stop}</button>`;
+  } else if (status === 'ON_BREAK') {
+    statusArea.innerHTML = `<span class="badge bg-warning text-dark badge-pulse fs-5 p-3">☕ ${t.onBreak}</span>`;
+    actionBtns.innerHTML = `<button class="btn btn-primary btn-lg px-5 py-2" onclick="doPunch('break-end')">${t.resume}</button>`;
+  } else if (status === 'CLOCKED_OUT') {
+    statusArea.innerHTML = `<span class="badge bg-secondary fs-5 p-3">${t.clockedOut}</span>`;
+    actionBtns.innerHTML = '';
+    summaryCard.style.display = 'block';
+  }
+}
+
+async function doPunch(action) {
+  const resp = await fetch(`/api/${action}/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': CSRF, 'Content-Type': 'application/x-www-form-urlencoded' },
+  });
+  const data = await resp.json();
+  if (!data.ok) { alert(data.error); return; }
+
+  if (data.clock_in) document.getElementById('sumClockIn').textContent = data.clock_in;
+  if (data.clock_out) document.getElementById('sumClockOut').textContent = data.clock_out;
+  if (data.break_min !== undefined) document.getElementById('sumBreak').textContent = data.break_min + ' min';
+  if (data.net_hours !== undefined && data.net_hours !== null) document.getElementById('sumNet').textContent = data.net_hours + ' h';
+
+  renderState(data.status, data.clock_in || initialClockIn);
+}
+
+function showCorrectionModal(recordId) {
+  document.getElementById('corrRecordId').value = recordId;
+  new bootstrap.Modal(document.getElementById('correctionModal')).show();
+}
+
+async function submitCorrection() {
+  const recordId = document.getElementById('corrRecordId').value;
+  const time = document.getElementById('corrTime').value;
+  if (!time) { alert('Please enter a time.'); return; }
+
+  const body = new URLSearchParams({ record_id: recordId, proposed_time: time });
+  const resp = await fetch('/api/submit-correction/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': CSRF },
+    body: body,
+  });
+  const data = await resp.json();
+  if (data.ok) {
+    bootstrap.Modal.getInstance(document.getElementById('correctionModal')).hide();
+    location.reload();
+  } else {
+    alert(data.error);
+  }
+}
+</script>
+{% endblock %}

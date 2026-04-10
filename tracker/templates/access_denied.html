@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+  <div class="col-md-6 text-center">
+    <div class="card shadow p-5">
+      <h1 class="text-danger mb-3">⛔</h1>
+      <h3 class="text-danger" data-en="Access Denied" data-de="Zugriff verweigert">Access Denied</h3>
+      <p class="text-muted mt-3" data-en="You do not have permission to view this page." data-de="Sie haben keine Berechtigung, diese Seite anzuzeigen.">You do not have permission to view this page.</p>
+      <a href="{% url 'punch_clock' %}" class="btn btn-outline-light mt-3" data-en="Go to Dashboard" data-de="Zum Dashboard">Go to Dashboard</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
