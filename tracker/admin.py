@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import CorrectionRequest, DailyTimeRecord, EmployeeProfile, HRReview
+from .models import CorrectionRequest, DailyTimeRecord, EmployeeProfile, HRReview, Notification
 
 
 @admin.register(EmployeeProfile)
@@ -17,7 +17,7 @@ class DailyTimeRecordAdmin(admin.ModelAdmin):
 
 @admin.register(CorrectionRequest)
 class CorrectionRequestAdmin(admin.ModelAdmin):
-    list_display = ("record", "proposed_out_time", "status")
+    list_display = ("record", "proposed_clock_in", "proposed_clock_out", "proposed_break_minutes", "status")
     list_filter = ("status",)
 
 
@@ -25,3 +25,9 @@ class CorrectionRequestAdmin(admin.ModelAdmin):
 class HRReviewAdmin(admin.ModelAdmin):
     list_display = ("employee", "month", "year", "status")
     list_filter = ("status", "month", "year")
+
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ("recipient", "sender", "notification_type", "title", "is_read", "created_at")
+    list_filter = ("notification_type", "is_read")
