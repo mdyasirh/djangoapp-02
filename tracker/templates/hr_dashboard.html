@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 data-en="HR Dashboard" data-de="HR-Übersicht">HR Dashboard</h2>
+  <a href="{% url 'csv_export' %}" class="btn btn-outline-info btn-sm" data-en="📥 Export CSV" data-de="📥 CSV exportieren">📥 Export CSV</a>
+</div>
+
+<p class="text-muted" data-en="Monthly overview for {{ current_month }}/{{ current_year }}" data-de="Monatsübersicht für {{ current_month }}/{{ current_year }}">Monthly overview for {{ current_month }}/{{ current_year }}</p>
+
+<div class="table-responsive">
+  <table class="table table-dark table-hover">
+    <thead>
+      <tr>
+        <th></th>
+        <th data-en="Employee" data-de="Mitarbeiter">Employee</th>
+        <th data-en="Department" data-de="Abteilung">Department</th>
+        <th data-en="Target (h)" data-de="Soll (h)">Target (h)</th>
+        <th data-en="Actual (h)" data-de="Ist (h)">Actual (h)</th>
+        <th data-en="Diff (h)" data-de="Differenz (h)">Diff (h)</th>
+        <th data-en="Review Status" data-de="Prüfstatus">Review Status</th>
+        <th data-en="Actions" data-de="Aktionen">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for emp in employee_data %}
+      <tr data-bs-toggle="collapse" data-bs-target="#detail-{{ emp.profile.pk }}" style="cursor:pointer;"
+          class="{% if emp.delta < -5 %}bg-danger text-white{% elif emp.delta > 5 %}bg-warning text-dark{% endif %}">
+        <td><span class="badge bg-secondary">▼</span></td>
+        <td>{{ emp.profile }}</td>
+        <td>{{ emp.profile.department }}</td>
+        <td>{{ emp.target }}</td>
+        <td>{{ emp.actual }}</td>
+        <td>
+          {% if emp.delta > 0 %}+{% endif %}{{ emp.delta }}
+        </td>
+        <td>
+          <span id="reviewStatus-{{ emp.hr_review.pk }}"
+                class="badge {% if emp.hr_review.status == 'REVIEWED' %}bg-success{% elif emp.hr_review.status == 'REMINDER_SENT' %}bg-info{% else %}bg-secondary{% endif %}">
+            {{ emp.hr_review.status }}
+          </span>
+        </td>
+        <td>
+          <button class="btn btn-sm btn-outline-warning" onclick="event.stopPropagation(); openReminderModal({{ emp.hr_review.pk }}, '{{ emp.profile }}')"
+                  data-en="Send Reminder" data-de="Erinnerung senden">Send Reminder</button>
+          <button class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); doAcknowledge({{ emp.hr_review.pk }})"
+                  data-en="Acknowledge" data-de="Bestätigen">Acknowledge</button>
+        </td>
+      </tr>
+      <!-- Expandable Detail Row -->
+      <tr class="collapse" id="detail-{{ emp.profile.pk }}">
+        <td colspan="8" class="p-0">
+          <div class="p-3">
+            <table class="table table-sm table-dark mb-0">
+              <thead>
+                <tr>
+                  <th data-en="Date" data-de="Datum">Date</th>
+                  <th data-en="Clock In" data-de="Einstempeln">Clock In</th>
+                  <th data-en="Clock Out" data-de="Ausstempeln">Clock Out</th>
+                  <th data-en="Break (min)" data-de="Pause (Min)">Break (min)</th>
+                  <th data-en="Net Hours" data-de="Nettostunden">Net Hours</th>
+                  <th data-en="Status" data-de="Status">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for rec in emp.records %}
+                <tr>
+                  <td>{{ rec.date|date:"d M Y" }}</td>
+                  <td>{{ rec.clock_in|date:"H:i"|default:"--" }}</td>
+                  <td>
+                    {% if rec.clock_in and not rec.clock_out %}
+                      <span class="text-danger" data-en="No clock-out" data-de="Kein Ausstempeln">No clock-out</span>
+                    {% else %}
+                      {{ rec.clock_out|date:"H:i"|default:"--" }}
+                    {% endif %}
+                  </td>
+                  <td>{{ rec.total_break_minutes }}</td>
+                  <td>{{ rec.net_hours|default:"--" }}</td>
+                  <td>{{ rec.status }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="6"><span class="text-danger" data-en="No entry" data-de="Kein Eintrag">No entry</span></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Reminder Modal -->
+<div class="modal fade" id="reminderModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title" data-en="Send Reminder" data-de="Erinnerung senden">Send Reminder</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="reminderReviewId">
+        <div class="mb-3">
+          <label class="form-label" data-en="To" data-de="An">To</label>
+          <input type="text" id="reminderTo" class="form-control bg-dark text-light border-secondary" readonly>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" data-en="Message" data-de="Nachricht">Message</label>
+          <textarea class="form-control bg-dark text-light border-secondary" rows="3" data-en="Please review and correct your time entries for this month." data-de="Bitte überprüfen und korrigieren Sie Ihre Zeiteinträge für diesen Monat.">Please review and correct your time entries for this month.</textarea>
+        </div>
+      </div>
+      <div class="modal-footer border-secondary">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-en="Cancel" data-de="Abbrechen">Cancel</button>
+        <button type="button" class="btn btn-warning" onclick="doSendReminder()" data-en="Send" data-de="Senden">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+
+function openReminderModal(reviewId, name) {
+  document.getElementById('reminderReviewId').value = reviewId;
+  document.getElementById('reminderTo').value = name;
+  new bootstrap.Modal(document.getElementById('reminderModal')).show();
+}
+
+async function doSendReminder() {
+  const reviewId = document.getElementById('reminderReviewId').value;
+  const body = new URLSearchParams({ review_id: reviewId });
+  const resp = await fetch('/api/send-reminder/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': CSRF },
+    body: body,
+  });
+  const data = await resp.json();
+  if (data.ok) {
+    const badge = document.getElementById('reviewStatus-' + reviewId);
+    badge.textContent = data.status;
+    badge.className = 'badge bg-info';
+    bootstrap.Modal.getInstance(document.getElementById('reminderModal')).hide();
+  } else {
+    alert(data.error);
+  }
+}
+
+async function doAcknowledge(reviewId) {
+  const body = new URLSearchParams({ review_id: reviewId });
+  const resp = await fetch('/api/acknowledge/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': CSRF },
+    body: body,
+  });
+  const data = await resp.json();
+  if (data.ok) {
+    const badge = document.getElementById('reviewStatus-' + reviewId);
+    badge.textContent = data.status;
+    badge.className = 'badge bg-success';
+  } else {
+    alert(data.error);
+  }
+}
+</script>
+{% endblock %}

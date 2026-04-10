@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+  <div class="col-md-5">
+    <div class="card shadow p-4">
+      <h3 class="text-center mb-4" data-en="Employee Login" data-de="Mitarbeiter-Login">Employee Login</h3>
+
+      {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+      {% endif %}
+
+      <form method="post" id="loginForm">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label" data-en="Username" data-de="Benutzername">Username</label>
+          <input type="text" name="username" class="form-control bg-dark text-light border-secondary" required autofocus>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" data-en="PIN / Password" data-de="PIN / Passwort">PIN / Password</label>
+          <input type="password" name="password" id="pinField" class="form-control bg-dark text-light border-secondary" required>
+        </div>
+
+        <!-- Visual Keypad -->
+        <div class="text-center mb-3" id="keypad">
+          <div class="d-flex flex-wrap justify-content-center">
+            <button type="button" class="btn btn-outline-light keypad-btn" onclick="appendPin('1')">1</button>
+            <button type="button" class="btn btn-outline-light keypad-btn" onclick="appendPin('2')">2</button>
+            <button type="button" class="btn btn-outline-light keypad-btn" onclick="appendPin('3')">3</button>
+            <button type="button" class="btn btn-outline-light keypad-btn" onclick="appendPin('4')">4</button>
+            <button type="button" class="btn btn-outline-light keypad-btn" onclick="appendPin('5')">5</button>
+            <button type="button" class="btn btn-outline-light keypad-btn" onclick="appendPin('6')">6</button>
+            <button type="button" class="btn btn-outline-light keypad-btn" onclick="appendPin('7')">7</button>
+            <button type="button" class="btn btn-outline-light keypad-btn" onclick="appendPin('8')">8</button>
+            <button type="button" class="btn btn-outline-light keypad-btn" onclick="appendPin('9')">9</button>
+            <button type="button" class="btn btn-outline-warning keypad-btn" onclick="clearPin()">⌫</button>
+            <button type="button" class="btn btn-outline-light keypad-btn" onclick="appendPin('0')">0</button>
+            <button type="button" class="btn btn-outline-success keypad-btn" onclick="document.getElementById('loginForm').submit()">✓</button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-success w-100" data-en="Sign In" data-de="Anmelden">Sign In</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function appendPin(digit) {
+  const f = document.getElementById('pinField');
+  f.value += digit;
+}
+function clearPin() {
+  const f = document.getElementById('pinField');
+  f.value = f.value.slice(0, -1);
+}
+</script>
+{% endblock %}
