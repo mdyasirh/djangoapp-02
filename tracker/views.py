@@ -589,7 +589,7 @@ def api_reject_correction(request):
         recipient=correction.record.employee.user,
         sender=request.user,
         notification_type="INFO",
-        title="Korrekturanfrage abgelehnt" if True else "Correction request rejected",
+        title="Korrekturanfrage abgelehnt",
         message=f"Ihre Korrekturanfrage für {correction.record.date} wurde abgelehnt.",
         related_record=correction.record,
     )
