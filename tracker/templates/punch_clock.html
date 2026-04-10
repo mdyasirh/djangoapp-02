@@ -4,41 +4,64 @@
 {% block content %}
 <div class="row justify-content-center">
   <div class="col-lg-8">
-    <h2 class="mb-4" data-en="Punch Clock" data-de="Stempeluhr">Punch Clock</h2>
+    <h2 class="mb-4" data-en="Punch Clock" data-de="Stempeluhr">Stempeluhr</h2>
 
     <!-- Status Area -->
-    <div id="statusArea" class="text-center mb-4">
-      <!-- Dynamically populated by JS -->
-    </div>
+    <div id="statusArea" class="text-center mb-4"></div>
 
     <!-- Action Buttons -->
-    <div id="actionButtons" class="text-center mb-5">
-      <!-- Dynamically populated by JS -->
-    </div>
+    <div id="actionButtons" class="text-center mb-5"></div>
 
     <!-- Summary Card (shown after clocking out) -->
     <div id="summaryCard" class="card p-4 mb-4" style="display:none;">
-      <h5 data-en="Today's Summary" data-de="Tagesübersicht">Today's Summary</h5>
+      <h5 data-en="Today's Summary" data-de="Tagesübersicht">Tagesübersicht</h5>
       <table class="table table-dark table-sm">
-        <tr><td data-en="Clock In" data-de="Einstempeln">Clock In</td><td id="sumClockIn">--</td></tr>
-        <tr><td data-en="Clock Out" data-de="Ausstempeln">Clock Out</td><td id="sumClockOut">--</td></tr>
-        <tr><td data-en="Break" data-de="Pause">Break</td><td id="sumBreak">--</td></tr>
-        <tr><td data-en="Net Hours" data-de="Nettostunden">Net Hours</td><td id="sumNet">--</td></tr>
+        <tr><td data-en="Clock In" data-de="Einstempeln">Einstempeln</td><td id="sumClockIn">--</td></tr>
+        <tr><td data-en="Clock Out" data-de="Ausstempeln">Ausstempeln</td><td id="sumClockOut">--</td></tr>
+        <tr><td data-en="Break" data-de="Pause">Pause</td><td id="sumBreak">--</td></tr>
+        <tr><td data-en="Net Hours" data-de="Nettostunden">Nettostunden</td><td id="sumNet">--</td></tr>
       </table>
     </div>
 
+    <!-- Today's Completed Shifts -->
+    {% if today_records %}
+    <h5 class="mt-3 mb-2" data-en="Today's Completed Shifts" data-de="Heutige abgeschlossene Schichten">Heutige abgeschlossene Schichten</h5>
+    <div class="table-responsive mb-3">
+      <table class="table table-dark table-sm table-striped">
+        <thead>
+          <tr>
+            <th data-en="Clock In" data-de="Einstempeln">Einstempeln</th>
+            <th data-en="Clock Out" data-de="Ausstempeln">Ausstempeln</th>
+            <th data-en="Break (min)" data-de="Pause (Min)">Pause (Min)</th>
+            <th data-en="Net Hours" data-de="Nettostunden">Nettostunden</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for rec in today_records %}
+          <tr>
+            <td>{{ rec.clock_in|date:"H:i"|default:"--" }}</td>
+            <td>{{ rec.clock_out|date:"H:i"|default:"--" }}</td>
+            <td>{{ rec.total_break_minutes }}</td>
+            <td>{{ rec.net_hours|default:"--" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
     <!-- Weekly Overview -->
-    <h4 class="mt-4 mb-3" data-en="Weekly Overview" data-de="Wochenübersicht">Weekly Overview</h4>
+    <h4 class="mt-4 mb-3" data-en="Weekly Overview" data-de="Wochenübersicht">Wochenübersicht</h4>
     <div class="table-responsive">
       <table class="table table-dark table-striped table-hover">
         <thead>
           <tr>
-            <th data-en="Date" data-de="Datum">Date</th>
-            <th data-en="Clock In" data-de="Einstempeln">Clock In</th>
-            <th data-en="Clock Out" data-de="Ausstempeln">Clock Out</th>
-            <th data-en="Break (min)" data-de="Pause (Min)">Break (min)</th>
-            <th data-en="Net Hours" data-de="Nettostunden">Net Hours</th>
-            <th data-en="Status" data-de="Status">Status</th>
+            <th data-en="Date" data-de="Datum">Datum</th>
+            <th data-en="Clock In" data-de="Einstempeln">Einstempeln</th>
+            <th data-en="Clock Out" data-de="Ausstempeln">Ausstempeln</th>
+            <th data-en="Break (min)" data-de="Pause (Min)">Pause (Min)</th>
+            <th data-en="Net Hours" data-de="Nettostunden">Nettostunden</th>
+            <th data-en="Actions" data-de="Aktionen">Aktionen</th>
           </tr>
         </thead>
         <tbody>
@@ -48,7 +71,7 @@
             <td>{{ rec.clock_in|date:"H:i"|default:"--" }}</td>
             <td>
               {% if rec.clock_in and not rec.clock_out %}
-                <span class="badge bg-danger" data-en="No clock-out" data-de="Kein Ausstempeln">No clock-out</span>
+                <span class="badge bg-danger" data-en="No clock-out" data-de="Kein Ausstempeln">Kein Ausstempeln</span>
               {% else %}
                 {{ rec.clock_out|date:"H:i"|default:"--" }}
               {% endif %}
@@ -56,21 +79,25 @@
             <td>{{ rec.total_break_minutes }}</td>
             <td>{{ rec.net_hours|default:"--" }}</td>
             <td>
-              {% if rec.status == "MISSING_CLOCKOUT" or rec.clock_in and not rec.clock_out %}
-                <button class="btn btn-sm btn-outline-warning correction-btn"
-                        data-record-id="{{ rec.pk }}"
-                        data-en="Submit correction" data-de="Korrektur einreichen"
-                        onclick="showCorrectionModal({{ rec.pk }})">
-                  Submit correction
+              {% if rec.status == "CLOCKED_OUT" or rec.status == "MISSING_CLOCKOUT" or rec.clock_in and not rec.clock_out %}
+                <button class="btn btn-sm btn-outline-info me-1"
+                        data-en="Edit" data-de="Bearbeiten"
+                        onclick="showEditModal({{ rec.pk }}, '{{ rec.clock_in|date:"H:i"|default:"" }}', '{{ rec.clock_out|date:"H:i"|default:"" }}', {{ rec.total_break_minutes }})">
+                  Bearbeiten
                 </button>
-              {% else %}
-                <span class="badge bg-success" data-en="Complete" data-de="Vollständig">Complete</span>
+                <button class="btn btn-sm btn-outline-danger"
+                        data-en="Delete" data-de="Löschen"
+                        onclick="confirmDeleteRecord({{ rec.pk }})">
+                  Löschen
+                </button>
+              {% elif rec.status == "WORKING" or rec.status == "ON_BREAK" %}
+                <span class="badge bg-success badge-pulse" data-en="Active" data-de="Aktiv">Aktiv</span>
               {% endif %}
             </td>
           </tr>
           {% empty %}
           <tr>
-            <td colspan="6" class="text-center text-muted" data-en="No records this week" data-de="Keine Einträge diese Woche">No records this week</td>
+            <td colspan="6" class="text-center text-muted" data-en="No records this week" data-de="Keine Einträge diese Woche">Keine Einträge diese Woche</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -79,25 +106,49 @@
   </div>
 </div>
 
-<!-- Correction Modal -->
-<div class="modal fade" id="correctionModal" tabindex="-1">
+<!-- Edit/Correction Modal -->
+<div class="modal fade" id="editModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content bg-dark text-light">
       <div class="modal-header border-secondary">
-        <h5 class="modal-title" data-en="Submit Correction" data-de="Korrektur einreichen">Submit Correction</h5>
+        <h5 class="modal-title" data-en="Edit Time Entry" data-de="Zeiteintrag bearbeiten">Zeiteintrag bearbeiten</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <input type="hidden" id="corrRecordId">
+        <input type="hidden" id="editRecordId">
         <div class="mb-3">
-          <label class="form-label" data-en="Proposed clock-out time" data-de="Vorgeschlagene Ausstempelzeit">Proposed clock-out time</label>
-          <input type="time" id="corrTime" class="form-control bg-dark text-light border-secondary">
+          <label class="form-label" data-en="Clock-in time" data-de="Einstempelzeit">Einstempelzeit</label>
+          <input type="time" id="editClockIn" class="form-control bg-dark text-light border-secondary">
+        </div>
+        <div class="mb-3">
+          <label class="form-label" data-en="Clock-out time" data-de="Ausstempelzeit">Ausstempelzeit</label>
+          <input type="time" id="editClockOut" class="form-control bg-dark text-light border-secondary">
+        </div>
+        <div class="mb-3">
+          <label class="form-label" data-en="Break (minutes)" data-de="Pause (Minuten)">Pause (Minuten)</label>
+          <input type="number" id="editBreakMin" class="form-control bg-dark text-light border-secondary" min="0">
+        </div>
+        <div class="mb-3">
+          <label class="form-label" data-en="Note / Reason" data-de="Anmerkung / Grund">Anmerkung / Grund</label>
+          <textarea id="editNote" class="form-control bg-dark text-light border-secondary" rows="2"></textarea>
         </div>
       </div>
       <div class="modal-footer border-secondary">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-en="Cancel" data-de="Abbrechen">Cancel</button>
-        <button type="button" class="btn btn-primary" onclick="submitCorrection()" data-en="Submit" data-de="Einreichen">Submit</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-en="Cancel" data-de="Abbrechen">Abbrechen</button>
+        <button type="button" class="btn btn-primary" onclick="submitEditRequest()" data-en="Submit Request" data-de="Anfrage senden">Anfrage senden</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirmation Overlay (used for clock-out and delete) -->
+<div id="confirmOverlay" class="confirm-overlay" style="display:none;">
+  <div class="confirm-box">
+    <h5 id="confirmTitle" class="mb-3"></h5>
+    <p id="confirmMessage" class="text-muted"></p>
+    <div class="d-flex justify-content-center gap-3 mt-4">
+      <button class="btn btn-secondary px-4" onclick="hideConfirm()" data-en="Cancel" data-de="Abbrechen">Abbrechen</button>
+      <button class="btn btn-danger px-4" id="confirmBtn" data-en="Confirm" data-de="Bestätigen">Bestätigen</button>
     </div>
   </div>
 </div>
@@ -105,7 +156,6 @@
 
 {% block extra_js %}
 <script>
-// ---- State Machine for punch-clock UI ----
 const CSRF = '{{ csrf_token }}';
 const initialStatus = '{{ record.status|default:"NONE" }}';
 const initialClockIn = '{{ record.clock_in|date:"H:i"|default:"" }}';
@@ -118,7 +168,7 @@ function renderState(status, clockIn) {
   const summaryCard = document.getElementById('summaryCard');
   summaryCard.style.display = 'none';
 
-  const lang = localStorage.getItem('lang') || 'en';
+  const lang = localStorage.getItem('lang') || 'de';
   const t = {
     notClockedIn: lang === 'de' ? 'Noch nicht eingestempelt' : 'Not clocked in yet',
     start: lang === 'de' ? 'Starten' : 'Start',
@@ -128,6 +178,7 @@ function renderState(status, clockIn) {
     onBreak: lang === 'de' ? 'In der Pause' : 'On break',
     resume: lang === 'de' ? 'Fortsetzen' : 'Resume',
     clockedOut: lang === 'de' ? 'Ausgestempelt' : 'Clocked out for today',
+    newShift: lang === 'de' ? 'Neue Schicht starten' : 'Start New Shift',
   };
 
   if (status === 'NONE' || status === '') {
@@ -137,15 +188,41 @@ function renderState(status, clockIn) {
     statusArea.innerHTML = `<span class="badge bg-success badge-pulse fs-5 p-3">⏱ ${t.working} (${clockIn})</span>`;
     actionBtns.innerHTML = `
       <button class="btn btn-warning btn-lg me-3 px-4 py-2" onclick="doPunch('break-start')">${t.breakBtn}</button>
-      <button class="btn btn-danger btn-lg px-4 py-2" onclick="doPunch('punch-out')">${t.stop}</button>`;
+      <button class="btn btn-danger btn-lg px-4 py-2" onclick="confirmClockOut()">${t.stop}</button>`;
   } else if (status === 'ON_BREAK') {
     statusArea.innerHTML = `<span class="badge bg-warning text-dark badge-pulse fs-5 p-3">☕ ${t.onBreak}</span>`;
     actionBtns.innerHTML = `<button class="btn btn-primary btn-lg px-5 py-2" onclick="doPunch('break-end')">${t.resume}</button>`;
   } else if (status === 'CLOCKED_OUT') {
     statusArea.innerHTML = `<span class="badge bg-secondary fs-5 p-3">${t.clockedOut}</span>`;
-    actionBtns.innerHTML = '';
+    actionBtns.innerHTML = `<button class="btn btn-success btn-lg px-4 py-2 mt-3" onclick="doPunch('punch-in')">${t.newShift}</button>`;
     summaryCard.style.display = 'block';
   }
+}
+
+// Confirmation overlay for clock-out
+function confirmClockOut() {
+  const lang = localStorage.getItem('lang') || 'de';
+  showConfirm(
+    lang === 'de' ? 'Schicht beenden?' : 'End shift?',
+    lang === 'de' ? 'Möchten Sie Ihre aktuelle Schicht wirklich beenden?' : 'Are you sure you want to clock out?',
+    () => doPunch('punch-out')
+  );
+}
+
+let _confirmCallback = null;
+function showConfirm(title, message, callback) {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMessage').textContent = message;
+  document.getElementById('confirmOverlay').style.display = 'flex';
+  _confirmCallback = callback;
+  document.getElementById('confirmBtn').onclick = () => {
+    hideConfirm();
+    if (_confirmCallback) _confirmCallback();
+  };
+}
+function hideConfirm() {
+  document.getElementById('confirmOverlay').style.display = 'none';
+  _confirmCallback = null;
 }
 
 async function doPunch(action) {
@@ -162,19 +239,44 @@ async function doPunch(action) {
   if (data.net_hours !== undefined && data.net_hours !== null) document.getElementById('sumNet').textContent = data.net_hours + ' h';
 
   renderState(data.status, data.clock_in || initialClockIn);
+
+  // If clocked out, reload to show updated tables
+  if (data.status === 'CLOCKED_OUT') {
+    setTimeout(() => location.reload(), 1200);
+  }
 }
 
-function showCorrectionModal(recordId) {
-  document.getElementById('corrRecordId').value = recordId;
-  new bootstrap.Modal(document.getElementById('correctionModal')).show();
+// Edit modal for any record
+function showEditModal(recordId, clockIn, clockOut, breakMin) {
+  document.getElementById('editRecordId').value = recordId;
+  document.getElementById('editClockIn').value = clockIn || '';
+  document.getElementById('editClockOut').value = clockOut || '';
+  document.getElementById('editBreakMin').value = breakMin || 0;
+  document.getElementById('editNote').value = '';
+  new bootstrap.Modal(document.getElementById('editModal')).show();
 }
 
-async function submitCorrection() {
-  const recordId = document.getElementById('corrRecordId').value;
-  const time = document.getElementById('corrTime').value;
-  if (!time) { alert('Please enter a time.'); return; }
+async function submitEditRequest() {
+  const recordId = document.getElementById('editRecordId').value;
+  const clockIn = document.getElementById('editClockIn').value;
+  const clockOut = document.getElementById('editClockOut').value;
+  const breakMin = document.getElementById('editBreakMin').value;
+  const note = document.getElementById('editNote').value;
 
-  const body = new URLSearchParams({ record_id: recordId, proposed_time: time });
+  if (!clockIn && !clockOut) {
+    const lang = localStorage.getItem('lang') || 'de';
+    alert(lang === 'de' ? 'Bitte mindestens eine Zeit eingeben.' : 'Please enter at least one time.');
+    return;
+  }
+
+  const body = new URLSearchParams({
+    record_id: recordId,
+    proposed_clock_in: clockIn,
+    proposed_clock_out: clockOut,
+    proposed_break_minutes: breakMin,
+    note: note,
+  });
+
   const resp = await fetch('/api/submit-correction/', {
     method: 'POST',
     headers: { 'X-CSRFToken': CSRF },
@@ -182,11 +284,49 @@ async function submitCorrection() {
   });
   const data = await resp.json();
   if (data.ok) {
-    bootstrap.Modal.getInstance(document.getElementById('correctionModal')).hide();
+    bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+    const lang = localStorage.getItem('lang') || 'de';
+    const msg = lang === 'de' ? 'Korrekturanfrage gesendet. HR wird benachrichtigt.' : 'Edit request submitted. HR will be notified.';
+    showToast(msg);
+    setTimeout(() => location.reload(), 1500);
+  } else {
+    alert(data.error);
+  }
+}
+
+// Delete record with confirmation
+function confirmDeleteRecord(recordId) {
+  const lang = localStorage.getItem('lang') || 'de';
+  showConfirm(
+    lang === 'de' ? 'Eintrag löschen?' : 'Delete entry?',
+    lang === 'de' ? 'Möchten Sie diesen Zeiteintrag wirklich löschen?' : 'Are you sure you want to delete this time entry?',
+    () => doDeleteRecord(recordId)
+  );
+}
+
+async function doDeleteRecord(recordId) {
+  const body = new URLSearchParams({ record_id: recordId });
+  const resp = await fetch('/api/delete-record/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': CSRF },
+    body: body,
+  });
+  const data = await resp.json();
+  if (data.ok) {
     location.reload();
   } else {
     alert(data.error);
   }
+}
+
+// Simple toast notification
+function showToast(msg) {
+  const toast = document.createElement('div');
+  toast.className = 'position-fixed bottom-0 end-0 p-3';
+  toast.style.zIndex = '3000';
+  toast.innerHTML = `<div class="alert alert-success alert-dismissible shadow">${msg}</div>`;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
 }
 </script>
 {% endblock %}

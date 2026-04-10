@@ -2,24 +2,40 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-  <h2 data-en="HR Dashboard" data-de="HR-Übersicht">HR Dashboard</h2>
-  <a href="{% url 'csv_export' %}" class="btn btn-outline-info btn-sm" data-en="📥 Export CSV" data-de="📥 CSV exportieren">📥 Export CSV</a>
+  <h2 data-en="HR Dashboard" data-de="HR-Übersicht">HR-Übersicht</h2>
+  <div class="d-flex align-items-center gap-2">
+    <!-- Month/Year Selector -->
+    <form method="get" class="d-flex align-items-center gap-2" id="monthForm">
+      <select name="month" class="form-select form-select-sm bg-dark text-light border-secondary" style="width:auto;" onchange="document.getElementById('monthForm').submit()">
+        {% for m in "123456789" %}
+          <option value="{{ forloop.counter }}" {% if forloop.counter == current_month %}selected{% endif %}>
+            {% if forloop.counter == 1 %}Jan{% elif forloop.counter == 2 %}Feb{% elif forloop.counter == 3 %}Mär{% elif forloop.counter == 4 %}Apr{% elif forloop.counter == 5 %}Mai{% elif forloop.counter == 6 %}Jun{% elif forloop.counter == 7 %}Jul{% elif forloop.counter == 8 %}Aug{% elif forloop.counter == 9 %}Sep{% endif %}
+          </option>
+        {% endfor %}
+        <option value="10" {% if current_month == 10 %}selected{% endif %}>Okt</option>
+        <option value="11" {% if current_month == 11 %}selected{% endif %}>Nov</option>
+        <option value="12" {% if current_month == 12 %}selected{% endif %}>Dez</option>
+      </select>
+      <input type="number" name="year" value="{{ current_year }}" class="form-control form-control-sm bg-dark text-light border-secondary" style="width:90px;" onchange="document.getElementById('monthForm').submit()">
+    </form>
+    <a href="{% url 'csv_export' %}?month={{ current_month }}&year={{ current_year }}" class="btn btn-outline-info btn-sm" data-en="📥 Export CSV" data-de="📥 CSV exportieren">📥 CSV exportieren</a>
+  </div>
 </div>
 
-<p class="text-muted" data-en="Monthly overview for {{ current_month }}/{{ current_year }}" data-de="Monatsübersicht für {{ current_month }}/{{ current_year }}">Monthly overview for {{ current_month }}/{{ current_year }}</p>
+<p class="text-muted" data-en="Monthly overview for {{ current_month }}/{{ current_year }}" data-de="Monatsübersicht für {{ current_month }}/{{ current_year }}">Monatsübersicht für {{ current_month }}/{{ current_year }}</p>
 
 <div class="table-responsive">
   <table class="table table-dark table-hover">
     <thead>
       <tr>
         <th></th>
-        <th data-en="Employee" data-de="Mitarbeiter">Employee</th>
-        <th data-en="Department" data-de="Abteilung">Department</th>
-        <th data-en="Target (h)" data-de="Soll (h)">Target (h)</th>
-        <th data-en="Actual (h)" data-de="Ist (h)">Actual (h)</th>
-        <th data-en="Diff (h)" data-de="Differenz (h)">Diff (h)</th>
-        <th data-en="Review Status" data-de="Prüfstatus">Review Status</th>
-        <th data-en="Actions" data-de="Aktionen">Actions</th>
+        <th data-en="Employee" data-de="Mitarbeiter">Mitarbeiter</th>
+        <th data-en="Department" data-de="Abteilung">Abteilung</th>
+        <th data-en="Target (h)" data-de="Soll (h)">Soll (h)</th>
+        <th data-en="Actual (h)" data-de="Ist (h)">Ist (h)</th>
+        <th data-en="Diff (h)" data-de="Differenz (h)">Differenz (h)</th>
+        <th data-en="Review Status" data-de="Prüfstatus">Prüfstatus</th>
+        <th data-en="Actions" data-de="Aktionen">Aktionen</th>
       </tr>
     </thead>
     <tbody>
@@ -42,9 +58,9 @@
         </td>
         <td>
           <button class="btn btn-sm btn-outline-warning" onclick="event.stopPropagation(); openReminderModal({{ emp.hr_review.pk }}, '{{ emp.profile }}')"
-                  data-en="Send Reminder" data-de="Erinnerung senden">Send Reminder</button>
+                  data-en="Send Reminder" data-de="Erinnerung senden">Erinnerung senden</button>
           <button class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); doAcknowledge({{ emp.hr_review.pk }})"
-                  data-en="Acknowledge" data-de="Bestätigen">Acknowledge</button>
+                  data-en="Acknowledge" data-de="Bestätigen">Bestätigen</button>
         </td>
       </tr>
       <!-- Expandable Detail Row -->
@@ -54,11 +70,11 @@
             <table class="table table-sm table-dark mb-0">
               <thead>
                 <tr>
-                  <th data-en="Date" data-de="Datum">Date</th>
-                  <th data-en="Clock In" data-de="Einstempeln">Clock In</th>
-                  <th data-en="Clock Out" data-de="Ausstempeln">Clock Out</th>
-                  <th data-en="Break (min)" data-de="Pause (Min)">Break (min)</th>
-                  <th data-en="Net Hours" data-de="Nettostunden">Net Hours</th>
+                  <th data-en="Date" data-de="Datum">Datum</th>
+                  <th data-en="Clock In" data-de="Einstempeln">Einstempeln</th>
+                  <th data-en="Clock Out" data-de="Ausstempeln">Ausstempeln</th>
+                  <th data-en="Break (min)" data-de="Pause (Min)">Pause (Min)</th>
+                  <th data-en="Net Hours" data-de="Nettostunden">Nettostunden</th>
                   <th data-en="Status" data-de="Status">Status</th>
                 </tr>
               </thead>
@@ -69,7 +85,7 @@
                   <td>{{ rec.clock_in|date:"H:i"|default:"--" }}</td>
                   <td>
                     {% if rec.clock_in and not rec.clock_out %}
-                      <span class="text-danger" data-en="No clock-out" data-de="Kein Ausstempeln">No clock-out</span>
+                      <span class="text-danger" data-en="No clock-out" data-de="Kein Ausstempeln">Kein Ausstempeln</span>
                     {% else %}
                       {{ rec.clock_out|date:"H:i"|default:"--" }}
                     {% endif %}
@@ -80,7 +96,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                  <td colspan="6"><span class="text-danger" data-en="No entry" data-de="Kein Eintrag">No entry</span></td>
+                  <td colspan="6"><span class="badge bg-danger" data-en="No entries" data-de="Keine Einträge">Keine Einträge</span></td>
                 </tr>
                 {% endfor %}
               </tbody>
@@ -98,23 +114,25 @@
   <div class="modal-dialog">
     <div class="modal-content bg-dark text-light">
       <div class="modal-header border-secondary">
-        <h5 class="modal-title" data-en="Send Reminder" data-de="Erinnerung senden">Send Reminder</h5>
+        <h5 class="modal-title" data-en="Send Reminder" data-de="Erinnerung senden">Erinnerung senden</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <input type="hidden" id="reminderReviewId">
         <div class="mb-3">
-          <label class="form-label" data-en="To" data-de="An">To</label>
+          <label class="form-label" data-en="To" data-de="An">An</label>
           <input type="text" id="reminderTo" class="form-control bg-dark text-light border-secondary" readonly>
         </div>
         <div class="mb-3">
-          <label class="form-label" data-en="Message" data-de="Nachricht">Message</label>
-          <textarea class="form-control bg-dark text-light border-secondary" rows="3" data-en="Please review and correct your time entries for this month." data-de="Bitte überprüfen und korrigieren Sie Ihre Zeiteinträge für diesen Monat.">Please review and correct your time entries for this month.</textarea>
+          <label class="form-label" data-en="Message" data-de="Nachricht">Nachricht</label>
+          <textarea id="reminderMessage" class="form-control bg-dark text-light border-secondary" rows="3"
+                    data-en="Please review and correct your time entries for this month."
+                    data-de="Bitte überprüfen und korrigieren Sie Ihre Zeiteinträge für diesen Monat.">Bitte überprüfen und korrigieren Sie Ihre Zeiteinträge für diesen Monat.</textarea>
         </div>
       </div>
       <div class="modal-footer border-secondary">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-en="Cancel" data-de="Abbrechen">Cancel</button>
-        <button type="button" class="btn btn-warning" onclick="doSendReminder()" data-en="Send" data-de="Senden">Send</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-en="Cancel" data-de="Abbrechen">Abbrechen</button>
+        <button type="button" class="btn btn-warning" onclick="doSendReminder()" data-en="Send" data-de="Senden">Senden</button>
       </div>
     </div>
   </div>
@@ -128,12 +146,19 @@ const CSRF = '{{ csrf_token }}';
 function openReminderModal(reviewId, name) {
   document.getElementById('reminderReviewId').value = reviewId;
   document.getElementById('reminderTo').value = name;
+  // Reset message to default
+  const lang = localStorage.getItem('lang') || 'de';
+  const textarea = document.getElementById('reminderMessage');
+  textarea.value = lang === 'de'
+    ? 'Bitte überprüfen und korrigieren Sie Ihre Zeiteinträge für diesen Monat.'
+    : 'Please review and correct your time entries for this month.';
   new bootstrap.Modal(document.getElementById('reminderModal')).show();
 }
 
 async function doSendReminder() {
   const reviewId = document.getElementById('reminderReviewId').value;
-  const body = new URLSearchParams({ review_id: reviewId });
+  const message = document.getElementById('reminderMessage').value;
+  const body = new URLSearchParams({ review_id: reviewId, message: message });
   const resp = await fetch('/api/send-reminder/', {
     method: 'POST',
     headers: { 'X-CSRFToken': CSRF },
@@ -145,6 +170,8 @@ async function doSendReminder() {
     badge.textContent = data.status;
     badge.className = 'badge bg-info';
     bootstrap.Modal.getInstance(document.getElementById('reminderModal')).hide();
+    const lang = localStorage.getItem('lang') || 'de';
+    showToast(lang === 'de' ? 'Erinnerung gesendet.' : 'Reminder sent.');
   } else {
     alert(data.error);
   }
@@ -165,6 +192,15 @@ async function doAcknowledge(reviewId) {
   } else {
     alert(data.error);
   }
+}
+
+function showToast(msg) {
+  const toast = document.createElement('div');
+  toast.className = 'position-fixed bottom-0 end-0 p-3';
+  toast.style.zIndex = '3000';
+  toast.innerHTML = `<div class="alert alert-success alert-dismissible shadow">${msg}</div>`;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
 }
 </script>
 {% endblock %}

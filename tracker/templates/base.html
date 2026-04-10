@@ -1,10 +1,10 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FitLife Studio – Time Tracking</title>
+  <title>FitLife Studio – Zeiterfassung</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     body { background-color: #1a1a2e; color: #e0e0e0; min-height: 100vh; }
@@ -15,7 +15,37 @@
     .btn-lang { font-size: 0.85rem; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
     .badge-pulse { animation: pulse 1.5s infinite; }
-    .keypad-btn { width: 60px; height: 60px; font-size: 1.4rem; margin: 4px; }
+    .notification-bell { position: relative; cursor: pointer; font-size: 1.3rem; }
+    .notification-count {
+      position: absolute; top: -6px; right: -8px;
+      background: #dc3545; color: #fff; border-radius: 50%;
+      font-size: 0.65rem; width: 18px; height: 18px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: bold;
+    }
+    .notification-dropdown {
+      position: absolute; right: 0; top: 100%; width: 320px;
+      background: #16213e; border: 1px solid #0f3460; border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.4); z-index: 1050;
+      max-height: 400px; overflow-y: auto; display: none;
+    }
+    .notification-dropdown.show { display: block; }
+    .notification-item {
+      padding: 10px 14px; border-bottom: 1px solid #0f3460;
+      font-size: 0.85rem; cursor: pointer;
+    }
+    .notification-item:hover { background: #1a2744; }
+    .notification-item.unread { border-left: 3px solid #0d6efd; }
+    .notification-item .notif-time { font-size: 0.72rem; color: #888; }
+    .confirm-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.7); z-index: 2000;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .confirm-box {
+      background: #16213e; border: 1px solid #0f3460; border-radius: 12px;
+      padding: 30px; max-width: 400px; width: 90%; text-align: center;
+    }
   </style>
 </head>
 <body class="bg-dark text-light">
@@ -23,10 +53,26 @@
     <div class="container-fluid">
       <a class="navbar-brand fw-bold" href="/">🏋️ FitLife Studio</a>
       <div class="d-flex align-items-center gap-3">
-        <button id="langToggle" class="btn btn-outline-light btn-sm btn-lang" onclick="toggleLanguage()">EN | DE</button>
+        <button id="langToggle" class="btn btn-outline-light btn-sm btn-lang" onclick="toggleLanguage()">DE | EN</button>
+
         {% if user.is_authenticated %}
-          <span class="text-light small" data-en="Hello, {{ user.get_full_name|default:user.username }}" data-de="Hallo, {{ user.get_full_name|default:user.username }}">Hello, {{ user.get_full_name|default:user.username }}</span>
-          <a href="{% url 'logout' %}" class="btn btn-outline-danger btn-sm" data-en="Logout" data-de="Abmelden">Logout</a>
+          <!-- Notification Bell -->
+          <div class="notification-bell" id="notifBell" onclick="toggleNotifDropdown()">
+            🔔
+            <span class="notification-count" id="notifBadge" style="display:none;">0</span>
+            <div class="notification-dropdown" id="notifDropdown">
+              <div class="p-2 border-bottom border-secondary d-flex justify-content-between align-items-center">
+                <strong class="small" data-en="Notifications" data-de="Benachrichtigungen">Benachrichtigungen</strong>
+                <button class="btn btn-sm btn-link text-info p-0" onclick="event.stopPropagation(); doMarkAllRead()" data-en="Mark all read" data-de="Alle gelesen">Alle gelesen</button>
+              </div>
+              <div id="notifList">
+                <div class="p-3 text-center text-muted small" data-en="No notifications" data-de="Keine Benachrichtigungen">Keine Benachrichtigungen</div>
+              </div>
+            </div>
+          </div>
+
+          <span class="text-light small" data-en="Hello, {{ user.get_full_name|default:user.username }}" data-de="Hallo, {{ user.get_full_name|default:user.username }}">Hallo, {{ user.get_full_name|default:user.username }}</span>
+          <a href="{% url 'logout' %}" class="btn btn-outline-danger btn-sm" data-en="Logout" data-de="Abmelden">Abmelden</a>
         {% endif %}
       </div>
     </div>
@@ -38,6 +84,79 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="{% static 'js/app.js' %}"></script>
+  <script>
+    // Notification dropdown logic
+    function toggleNotifDropdown() {
+      const dd = document.getElementById('notifDropdown');
+      dd.classList.toggle('show');
+      if (dd.classList.contains('show')) {
+        loadNotifications();
+      }
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      const bell = document.getElementById('notifBell');
+      const dd = document.getElementById('notifDropdown');
+      if (bell && dd && !bell.contains(e.target)) {
+        dd.classList.remove('show');
+      }
+    });
+
+    async function loadNotifications() {
+      try {
+        const resp = await fetch('/api/notifications/');
+        const data = await resp.json();
+        if (!data.ok) return;
+
+        const list = document.getElementById('notifList');
+        const lang = localStorage.getItem('lang') || 'de';
+
+        if (data.notifications.length === 0) {
+          const emptyMsg = lang === 'de' ? 'Keine Benachrichtigungen' : 'No notifications';
+          list.innerHTML = `<div class="p-3 text-center text-muted small">${emptyMsg}</div>`;
+          return;
+        }
+
+        list.innerHTML = data.notifications.map(n => {
+          const date = new Date(n.created_at);
+          const timeStr = date.toLocaleString(lang === 'de' ? 'de-DE' : 'en-GB', {
+            day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+          });
+          return `
+            <div class="notification-item ${n.is_read ? '' : 'unread'}" onclick="event.stopPropagation(); markRead(${n.id})">
+              <div class="fw-bold">${n.title}</div>
+              <div class="text-muted small">${n.message}</div>
+              <div class="notif-time">${timeStr}</div>
+            </div>`;
+        }).join('');
+      } catch {
+        // Silently fail
+      }
+    }
+
+    async function markRead(notifId) {
+      const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
+      const body = new URLSearchParams({ notification_id: notifId });
+      await fetch('/api/notifications/mark-read/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrf },
+        body: body,
+      });
+      fetchNotifications();
+      loadNotifications();
+    }
+
+    async function doMarkAllRead() {
+      const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
+      await fetch('/api/notifications/mark-all-read/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrf },
+      });
+      fetchNotifications();
+      loadNotifications();
+    }
+  </script>
   {% block extra_js %}{% endblock %}
 </body>
 </html>
