@@ -391,11 +391,19 @@ def hr_dashboard_view(request):
     # Notification count for HR
     unread_count = Notification.objects.filter(recipient=request.user, is_read=False).count()
 
+    # Month choices for the selector
+    month_choices = [
+        (1, "Jan"), (2, "Feb"), (3, "Mär"), (4, "Apr"),
+        (5, "Mai"), (6, "Jun"), (7, "Jul"), (8, "Aug"),
+        (9, "Sep"), (10, "Okt"), (11, "Nov"), (12, "Dez"),
+    ]
+
     ctx = {
         "employee_data": employee_data,
         "current_month": selected_month,
         "current_year": selected_year,
         "unread_count": unread_count,
+        "month_choices": month_choices,
     }
     return render(request, "hr_dashboard.html", ctx)
 

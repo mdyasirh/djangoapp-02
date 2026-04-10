@@ -39,6 +39,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ---- Notification System ----
 
+const NOTIFICATION_POLL_INTERVAL_MS = 30000;
+
 async function fetchNotifications() {
   try {
     const resp = await fetch('/api/notifications/');
@@ -47,8 +49,8 @@ async function fetchNotifications() {
       updateNotificationBadge(data.count);
       return data.notifications;
     }
-  } catch {
-    // Silently fail if offline
+  } catch (err) {
+    console.warn('Failed to fetch notifications:', err);
   }
   return [];
 }
@@ -84,5 +86,5 @@ async function markAllNotificationsRead(csrf) {
 // Poll for notifications every 30 seconds
 document.addEventListener('DOMContentLoaded', () => {
   fetchNotifications();
-  setInterval(fetchNotifications, 30000);
+  setInterval(fetchNotifications, NOTIFICATION_POLL_INTERVAL_MS);
 });

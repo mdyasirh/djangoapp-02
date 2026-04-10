@@ -7,14 +7,9 @@
     <!-- Month/Year Selector -->
     <form method="get" class="d-flex align-items-center gap-2" id="monthForm">
       <select name="month" class="form-select form-select-sm bg-dark text-light border-secondary" style="width:auto;" onchange="document.getElementById('monthForm').submit()">
-        {% for m in "123456789" %}
-          <option value="{{ forloop.counter }}" {% if forloop.counter == current_month %}selected{% endif %}>
-            {% if forloop.counter == 1 %}Jan{% elif forloop.counter == 2 %}Feb{% elif forloop.counter == 3 %}Mär{% elif forloop.counter == 4 %}Apr{% elif forloop.counter == 5 %}Mai{% elif forloop.counter == 6 %}Jun{% elif forloop.counter == 7 %}Jul{% elif forloop.counter == 8 %}Aug{% elif forloop.counter == 9 %}Sep{% endif %}
-          </option>
+        {% for num, label in month_choices %}
+          <option value="{{ num }}" {% if num == current_month %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
-        <option value="10" {% if current_month == 10 %}selected{% endif %}>Okt</option>
-        <option value="11" {% if current_month == 11 %}selected{% endif %}>Nov</option>
-        <option value="12" {% if current_month == 12 %}selected{% endif %}>Dez</option>
       </select>
       <input type="number" name="year" value="{{ current_year }}" class="form-control form-control-sm bg-dark text-light border-secondary" style="width:90px;" onchange="document.getElementById('monthForm').submit()">
     </form>

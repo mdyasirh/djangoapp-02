@@ -240,9 +240,10 @@ async function doPunch(action) {
 
   renderState(data.status, data.clock_in || initialClockIn);
 
-  // If clocked out, reload to show updated tables
+  // If clocked out, reload to show updated tables after brief delay
+  const RELOAD_DELAY_MS = 1200;
   if (data.status === 'CLOCKED_OUT') {
-    setTimeout(() => location.reload(), 1200);
+    setTimeout(() => location.reload(), RELOAD_DELAY_MS);
   }
 }
 

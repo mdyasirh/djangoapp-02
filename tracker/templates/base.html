@@ -130,8 +130,8 @@
               <div class="notif-time">${timeStr}</div>
             </div>`;
         }).join('');
-      } catch {
-        // Silently fail
+      } catch (err) {
+        console.warn('Failed to load notifications:', err);
       }
     }
 
