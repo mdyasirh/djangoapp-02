@@ -190,7 +190,7 @@ function renderState(status, clockIn) {
       <button class="btn btn-warning btn-lg me-3 px-4 py-2" onclick="doPunch('break-start')">${t.breakBtn}</button>
       <button class="btn btn-danger btn-lg px-4 py-2" onclick="confirmClockOut()">${t.stop}</button>`;
   } else if (status === 'ON_BREAK') {
-    statusArea.innerHTML = `<span class="badge bg-warning text-dark badge-pulse fs-5 p-3">☕ ${t.onBreak}</span>`;
+    statusArea.innerHTML = `<span class="badge bg-warning text-dark fs-5 p-3">☕ ${t.onBreak}</span>`;
     actionBtns.innerHTML = `<button class="btn btn-primary btn-lg px-5 py-2" onclick="doPunch('break-end')">${t.resume}</button>`;
   } else if (status === 'CLOCKED_OUT') {
     statusArea.innerHTML = `<span class="badge bg-secondary fs-5 p-3">${t.clockedOut}</span>`;
@@ -216,8 +216,9 @@ function showConfirm(title, message, callback) {
   document.getElementById('confirmOverlay').style.display = 'flex';
   _confirmCallback = callback;
   document.getElementById('confirmBtn').onclick = () => {
+    const cb = _confirmCallback;
     hideConfirm();
-    if (_confirmCallback) _confirmCallback();
+    if (cb) cb();
   };
 }
 function hideConfirm() {
@@ -226,9 +227,14 @@ function hideConfirm() {
 }
 
 async function doPunch(action) {
+  const body = new URLSearchParams();
+  if (action === 'punch-in') {
+    body.append('browser_time', new Date().toISOString());
+  }
   const resp = await fetch(`/api/${action}/`, {
     method: 'POST',
     headers: { 'X-CSRFToken': CSRF, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body,
   });
   const data = await resp.json();
   if (!data.ok) { alert(data.error); return; }
