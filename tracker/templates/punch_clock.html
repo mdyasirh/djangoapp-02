@@ -109,31 +109,31 @@
 <!-- Edit/Correction Modal -->
 <div class="modal fade" id="editModal" tabindex="-1">
   <div class="modal-dialog">
-    <div class="modal-content bg-dark text-light">
-      <div class="modal-header border-secondary">
+    <div class="modal-content">
+      <div class="modal-header">
         <h5 class="modal-title" data-en="Edit Time Entry" data-de="Zeiteintrag bearbeiten">Zeiteintrag bearbeiten</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <input type="hidden" id="editRecordId">
         <div class="mb-3">
           <label class="form-label" data-en="Clock-in time" data-de="Einstempelzeit">Einstempelzeit</label>
-          <input type="time" id="editClockIn" class="form-control bg-dark text-light border-secondary">
+          <input type="time" id="editClockIn" class="form-control">
         </div>
         <div class="mb-3">
           <label class="form-label" data-en="Clock-out time" data-de="Ausstempelzeit">Ausstempelzeit</label>
-          <input type="time" id="editClockOut" class="form-control bg-dark text-light border-secondary">
+          <input type="time" id="editClockOut" class="form-control">
         </div>
         <div class="mb-3">
           <label class="form-label" data-en="Break (minutes)" data-de="Pause (Minuten)">Pause (Minuten)</label>
-          <input type="number" id="editBreakMin" class="form-control bg-dark text-light border-secondary" min="0">
+          <input type="number" id="editBreakMin" class="form-control" min="0">
         </div>
         <div class="mb-3">
           <label class="form-label" data-en="Note / Reason" data-de="Anmerkung / Grund">Anmerkung / Grund</label>
-          <textarea id="editNote" class="form-control bg-dark text-light border-secondary" rows="2"></textarea>
+          <textarea id="editNote" class="form-control" rows="2"></textarea>
         </div>
       </div>
-      <div class="modal-footer border-secondary">
+      <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-en="Cancel" data-de="Abbrechen">Abbrechen</button>
         <button type="button" class="btn btn-primary" onclick="submitEditRequest()" data-en="Submit Request" data-de="Anfrage senden">Anfrage senden</button>
       </div>
@@ -185,12 +185,12 @@ function renderState(status, clockIn) {
     statusArea.innerHTML = `<p class="text-muted fs-5">${t.notClockedIn}</p>`;
     actionBtns.innerHTML = `<button class="btn btn-success btn-lg px-5 py-3 fs-3" onclick="doPunch('punch-in')">${t.start}</button>`;
   } else if (status === 'WORKING') {
-    statusArea.innerHTML = `<span class="badge bg-success badge-pulse fs-5 p-3">⏱ ${t.working} (${clockIn})</span>`;
+    statusArea.innerHTML = `<span class="badge bg-success badge-pulse fs-5 p-3">[clock] ${t.working} (${clockIn})</span>`;
     actionBtns.innerHTML = `
       <button class="btn btn-warning btn-lg me-3 px-4 py-2" onclick="doPunch('break-start')">${t.breakBtn}</button>
       <button class="btn btn-danger btn-lg px-4 py-2" onclick="confirmClockOut()">${t.stop}</button>`;
   } else if (status === 'ON_BREAK') {
-    statusArea.innerHTML = `<span class="badge bg-warning text-dark fs-5 p-3">☕ ${t.onBreak}</span>`;
+    statusArea.innerHTML = `<span class="badge bg-warning text-dark fs-5 p-3">[break] ${t.onBreak}</span>`;
     actionBtns.innerHTML = `<button class="btn btn-primary btn-lg px-5 py-2" onclick="doPunch('break-end')">${t.resume}</button>`;
   } else if (status === 'CLOCKED_OUT') {
     statusArea.innerHTML = `<span class="badge bg-secondary fs-5 p-3">${t.clockedOut}</span>`;
