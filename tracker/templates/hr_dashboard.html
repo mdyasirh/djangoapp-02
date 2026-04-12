@@ -6,14 +6,14 @@
   <div class="d-flex align-items-center gap-2">
     <!-- Month/Year Selector -->
     <form method="get" class="d-flex align-items-center gap-2" id="monthForm">
-      <select name="month" class="form-select form-select-sm bg-dark text-light border-secondary" style="width:auto;" onchange="document.getElementById('monthForm').submit()">
+      <select name="month" class="form-select form-select-sm" style="width:auto;" onchange="document.getElementById('monthForm').submit()">
         {% for num, label in month_choices %}
           <option value="{{ num }}" {% if num == current_month %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
       </select>
-      <input type="number" name="year" value="{{ current_year }}" class="form-control form-control-sm bg-dark text-light border-secondary" style="width:90px;" onchange="document.getElementById('monthForm').submit()">
+      <input type="number" name="year" value="{{ current_year }}" class="form-control form-control-sm" style="width:90px;" onchange="document.getElementById('monthForm').submit()">
     </form>
-    <a href="{% url 'csv_export' %}?month={{ current_month }}&year={{ current_year }}" class="btn btn-outline-info btn-sm" data-en="📥 Export CSV" data-de="📥 CSV exportieren">📥 CSV exportieren</a>
+    <a href="{% url 'csv_export' %}?month={{ current_month }}&year={{ current_year }}" class="btn btn-outline-secondary btn-sm" data-en="[export] Export CSV" data-de="[export] CSV exportieren">[export] CSV exportieren</a>
   </div>
 </div>
 
@@ -107,25 +107,25 @@
 <!-- Reminder Modal -->
 <div class="modal fade" id="reminderModal" tabindex="-1">
   <div class="modal-dialog">
-    <div class="modal-content bg-dark text-light">
-      <div class="modal-header border-secondary">
+    <div class="modal-content">
+      <div class="modal-header">
         <h5 class="modal-title" data-en="Send Reminder" data-de="Erinnerung senden">Erinnerung senden</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <input type="hidden" id="reminderReviewId">
         <div class="mb-3">
           <label class="form-label" data-en="To" data-de="An">An</label>
-          <input type="text" id="reminderTo" class="form-control bg-dark text-light border-secondary" readonly>
+          <input type="text" id="reminderTo" class="form-control" readonly>
         </div>
         <div class="mb-3">
           <label class="form-label" data-en="Message" data-de="Nachricht">Nachricht</label>
-          <textarea id="reminderMessage" class="form-control bg-dark text-light border-secondary" rows="3"
+          <textarea id="reminderMessage" class="form-control" rows="3"
                     data-en="Please review and correct your time entries for this month."
                     data-de="Bitte überprüfen und korrigieren Sie Ihre Zeiteinträge für diesen Monat.">Bitte überprüfen und korrigieren Sie Ihre Zeiteinträge für diesen Monat.</textarea>
         </div>
       </div>
-      <div class="modal-footer border-secondary">
+      <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-en="Cancel" data-de="Abbrechen">Abbrechen</button>
         <button type="button" class="btn btn-warning" onclick="doSendReminder()" data-en="Send" data-de="Senden">Senden</button>
       </div>
